@@ -65,8 +65,6 @@ void checkEnv() {
         channel = uBit.audio.mixer.addChannel(*recording, defaultSampleRate);
 
         channel->setVolume(75.0);
-        uBit.audio.mixer.setVolume(1000);
-        uBit.audio.setSpeakerEnabled(true);
     }
 #endif
 }
@@ -215,6 +213,20 @@ void setBothSamples(int sampleRate) {
 #if MICROBIT_CODAL
     setOutputSampleRate(sampleRate);
     splitterChannel->requestSampleRate(sampleRate);
+#else
+    target_panic(PANIC_VARIANT_NOT_SUPPORTED);
+#endif
+}
+
+
+/**
+ * Change the volume of the mixer channel (audio output)
+ */
+//%
+void setOutputVolume(int volume) {
+#if MICROBIT_CODAL
+    checkEnv();
+    channel->setVolume(volume);
 #else
     target_panic(PANIC_VARIANT_NOT_SUPPORTED);
 #endif

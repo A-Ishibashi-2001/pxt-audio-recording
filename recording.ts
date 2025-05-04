@@ -221,6 +221,21 @@ namespace record {
     }
 
     /**
+     * Set the volume for playback
+     * 
+     * @param volume The volume
+     */
+    //% block="set playback volume to $volume"
+    //% blockId="record_setPlaybackVolume"
+    //% volume.min=0 volume.max=1000 volume.defl=75
+    //% parts="microphone"
+    //% weight=30
+    //% help=record/set-volume
+    export function setPlaybackVolume(volume: number): void {
+        setOutputVolume(volume);
+    }
+
+    /**
      * Send recorded audio clip data to serial
      */
     //% block="send audio clip to serial"

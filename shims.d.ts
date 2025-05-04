@@ -80,6 +80,12 @@ declare namespace record {
      */
     //% shim=record::setBothSamples
     function setBothSamples(sampleRate: int32): void;
+
+    /**
+     * Change the volume of the mixer channel (audio output)
+     */
+    //% shim=record::setOutputVolume
+    function setOutputVolume(volume: int32): void;
 }
 
 // Auto-generated. Do not edit. Really.
