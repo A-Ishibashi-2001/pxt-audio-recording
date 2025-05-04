@@ -219,11 +219,8 @@ void setBothSamples(int sampleRate) {
 }
 
 
-/**
- * Change the volume of the mixer channel (audio output)
- */
 //%
-void setOutputVolume(int volume) {
+void setPlaybackVolume(int volume) {
 #if MICROBIT_CODAL
     checkEnv();
     channel->setVolume(volume);

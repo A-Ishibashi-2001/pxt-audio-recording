@@ -231,8 +231,9 @@ namespace record {
     //% parts="microphone"
     //% weight=30
     //% help=record/set-volume
+    //% shim=record::setPlaybackVolume
     export function setPlaybackVolume(volume: number): void {
-        setOutputVolume(volume);
+        return;
     }
 
     /**
