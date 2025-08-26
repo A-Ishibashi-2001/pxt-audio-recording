@@ -1,6 +1,8 @@
 
 > Open this page at [https://martinwork.github.io/pxt-audio-recording/](https://martinwork.github.io/pxt-audio-recording/)
 
+IMPORTANT: See [this issue](https://github.com/microsoft/pxt-microbit/issues/5944#issuecomment-2360923272)
+
 ## Use as Extension
 
 This is an experiment. Please don't use this repo directly.
