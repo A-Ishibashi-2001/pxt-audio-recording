@@ -37,6 +37,7 @@
 
 #if MICROBIT_CODAL
 #include "StreamRecording.h"
+#include "SerialStreamer.h"
 #endif
 
 using namespace pxt;
@@ -47,7 +48,7 @@ namespace record {
 static StreamRecording *recording = NULL;
 static SplitterChannel *splitterChannel = NULL;
 static MixerChannel *channel = NULL;
-static bool sending = false;
+static SerialStreamer *streamer = NULL;
 #endif
 
 
@@ -65,6 +66,8 @@ void checkEnv() {
         channel = uBit.audio.mixer.addChannel(*recording, defaultSampleRate);
 
         channel->setVolume(75.0);
+
+        streamer = new SerialStreamer(*recording);
     }
 #endif
 }
@@ -89,6 +92,10 @@ void record() {
 void play() {
 #if MICROBIT_CODAL
     checkEnv();
+    if ( recording->isPlaying() && recording->downStream != channel) {
+        recording->stop();
+    }
+    recording->connect( *channel);
     recording->playAsync();
 #else
     target_panic(PANIC_VARIANT_NOT_SUPPORTED);
@@ -232,25 +239,12 @@ void setPlaybackVolume(int volume) {
 //%
 void sendToSerial() {
 #if MICROBIT_CODAL
-    if (recording && !sending) {
-        sending = true;
-        int format = recording->getFormat();
-        int skip = DATASTREAM_FORMAT_BYTES_PER_SAMPLE( format);
-        StreamRecording_Buffer *node;
-        for ( node = recording->bufferChain; node && !recording->isRecording(); node = node->next) {
-            if ( node->buffer.length()) {
-                ManagedBuffer buffer = node->buffer;
-                uint8_t *ptr  = &buffer[0]; 
-                uint8_t *next = ptr + buffer.length();
-                while ( ptr < next) {
-                    int32_t v = StreamNormalizer::readSample[format](ptr);
-                    ptr += skip;
-                    uBit.serial.send( ManagedString( (int) v) + "\n");
-                }
-            }
-        }
-        sending = false;
+    checkEnv();
+    if ( recording->isPlaying() && recording->downStream != streamer) {
+        recording->stop();
     }
+    recording->connect( *streamer);
+    recording->playAsync();
 #else
     target_panic(PANIC_VARIANT_NOT_SUPPORTED);
 #endif
@@ -260,7 +254,8 @@ void sendToSerial() {
 //%
 bool sendingToSerial() {
 #if MICROBIT_CODAL
-    return sending;
+    checkEnv();
+    return recording->isPlaying() && recording->downStream == streamer;
 #else
     return false;
 #endif
