@@ -1,3 +1,5 @@
+
+
 /**
  * (c) 2024, Micro:bit Educational Foundation and contributors
  *
@@ -45,10 +47,54 @@ using namespace pxt;
 namespace record {
 
 #if MICROBIT_CODAL
+// Based on
+// https://github.com/lancaster-university/codal-core/blob/master/source/streams/SerialStreamer.cpp
+// Copyright (c) 2016 Lancaster University.
+class SerialSink : public DataSink
+{
+    DataSource      &upstream; 
+ 
+public:
+    SerialSink( DataSource &source) : upstream( source) {
+        source.connect( *this);
+        source.dataWanted( DATASTREAM_WANTED);
+    }
+
+    int pullRequest() {
+        static volatile int pr = 0;
+        if ( !pr) {
+            pr++;
+            while ( pr) {
+                send( upstream.pull());
+                pr--;
+            }
+        } else {
+            pr++;
+        }
+        return DEVICE_OK;
+    }
+
+    void send( ManagedBuffer buffer) {
+        if ( buffer.length() <= 0) return;
+        int format = upstream.getFormat();
+        int skip = DATASTREAM_FORMAT_BYTES_PER_SAMPLE( format);
+        uint8_t *ptr  = &buffer[0]; 
+        uint8_t *next = ptr + buffer.length();
+        while ( ptr < next) {
+            int32_t v = StreamNormalizer::readSample[ format]( ptr);
+            Serial::defaultSerial->send( ManagedString( (int) v) + "\n");
+            ptr += skip;
+        }
+    }
+};
+#endif //MICROBIT_CODAL
+
+
+#if MICROBIT_CODAL
 static StreamRecording *recording = NULL;
 static SplitterChannel *splitterChannel = NULL;
 static MixerChannel *channel = NULL;
-static SerialStreamer *streamer = NULL;
+static SerialSink *serialSink = NULL;
 #endif
 
 
@@ -67,7 +113,7 @@ void checkEnv() {
 
         channel->setVolume(75.0);
 
-        streamer = new SerialStreamer(*recording);
+        serialSink = new SerialSink(*recording);
     }
 #endif
 }
@@ -237,13 +283,13 @@ void setPlaybackVolume(int volume) {
 }
 
 //%
-void sendToSerial() {
+void send() {
 #if MICROBIT_CODAL
     checkEnv();
-    if ( recording->isPlaying() && recording->downStream != streamer) {
+    if ( recording->isPlaying() && recording->downStream != serialSink) {
         recording->stop();
     }
-    recording->connect( *streamer);
+    recording->connect( *serialSink);
     recording->playAsync();
 #else
     target_panic(PANIC_VARIANT_NOT_SUPPORTED);
@@ -255,7 +301,7 @@ void sendToSerial() {
 bool sendingToSerial() {
 #if MICROBIT_CODAL
     checkEnv();
-    return recording->isPlaying() && recording->downStream == streamer;
+    return recording->isPlaying() && recording->downStream == serialSink;
 #else
     return false;
 #endif

@@ -1,15 +1,15 @@
 input.onButtonPressed(Button.A, function () {
     record.setSampleRate(11000, record.AudioSampleRateScope.Recording)
-    record.startRecording(record.BlockingState.Blocking)
+    record.startRecording(record.BlockingState.Nonblocking)
 })
 input.onButtonPressed(Button.B, function () {
     record.setSampleRate(11000, record.AudioSampleRateScope.Playback)
-    record.playAudio(record.BlockingState.Blocking)
+    record.playAudio(record.BlockingState.Nonblocking)
 })
 input.onLogoEvent(TouchButtonEvent.Pressed, function () {
-    record.sendToSerial()
+    record.sendToSerial(record.BlockingState.Nonblocking)
 })
-serial.setTxBufferSize(254)
+//serial.setTxBufferSize(254)
 basic.forever(function () {
     if (record.sendingToSerial()) {
         basic.showIcon(IconNames.Diamond)

@@ -240,21 +240,30 @@ namespace record {
      * Send recorded audio clip data to serial
      */
     //% block="send audio clip to serial"
-    //% shim=record::sendToSerial
-    //% blockId="record_sendToSerial"
-    //% weight=20
-    export function sendToSerial(): void {
-        basic.pause(0)
-    }
+	//% blockId="record_sendToSerial"
+	//% weight=20
+	export function sendToSerial(mode: BlockingState): void {
+		send();
+		if (mode === BlockingState.Blocking) pauseUntil(notSendingToSerial);
+	}
 
-    /**
-     * Test whether sending to serial
+	/**
+	 * Test whether sending to serial
      */
     //% block="sending to serial"
-    //% blockId="record_sendingToSerial"
+	//% blockId="record_sendingToSerial"
     //% shim=record::sendingToSerial
-    //% weight=10
+	//% weight=10
     export function sendingToSerial(): boolean {
         return false
-    }
+	}
+
+    //% shim=record::send
+	function send(): void {
+		basic.pause(0);
+	}
+
+    function notSendingToSerial(): boolean {
+		return !sendingToSerial();    
+	}
 }
