@@ -266,4 +266,22 @@ namespace record {
     function notSendingToSerial(): boolean {
 		return !sendingToSerial();    
 	}
+
+    //% blockId=record_set_radio_group block="set radio group %group"
+    //% shim=record::setRadioGroup
+    export function setRadioGroup(group: number): void {
+        return
+    }
+
+    //% blockId=record_send_to_radio block="send audio to radio"
+    //% shim=record::sendToRadio
+    export function sendToRadio(): void {
+        return
+    }
+
+    //% blockId=record_sending_to_radio block="sending to radio"
+    //% shim=record::sendingToRadio
+    export function sendingToRadio(): boolean {
+        return false
+    }
 }
