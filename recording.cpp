@@ -47,6 +47,15 @@ using namespace pxt;
 namespace record {
 
 #if MICROBIT_CODAL
+static const uint8_t RADIO_PKT_START = 0xA0;
+static const uint8_t RADIO_PKT_DATA  = 0xA1;
+static const uint8_t RADIO_PKT_END   = 0xA2;
+
+static const int RADIO_AUDIO_SAMPLES_PER_PACKET = 24;
+static int radioGroup = 23;
+#endif
+
+#if MICROBIT_CODAL
 // Based on
 // https://github.com/lancaster-university/codal-core/blob/master/source/streams/SerialStreamer.cpp
 // Copyright (c) 2016 Lancaster University.
@@ -91,10 +100,96 @@ public:
 
 
 #if MICROBIT_CODAL
+class RadioSink : public DataSink
+{
+    DataSource &upstream;
+    uint8_t seq;
+    bool started;
+
+public:
+    RadioSink(DataSource &source) : upstream(source), seq(0), started(false) {
+        source.connect(*this);
+        source.dataWanted(DATASTREAM_WANTED);
+    }
+
+    void begin(int sampleRate) {
+        seq = 0;
+        started = true;
+
+        PacketBuffer pkt(4);
+        pkt[0] = RADIO_PKT_START;
+        pkt[1] = (sampleRate >> 8) & 0xFF;
+        pkt[2] = sampleRate & 0xFF;
+        pkt[3] = 0;
+        uBit.radio.datagram.send(pkt);
+    }
+
+    void end() {
+        if (!started) return;
+
+        PacketBuffer pkt(2);
+        pkt[0] = RADIO_PKT_END;
+        pkt[1] = seq;
+        uBit.radio.datagram.send(pkt);
+
+        started = false;
+    }
+
+    int pullRequest() {
+        static volatile int pr = 0;
+        if (!pr) {
+            pr++;
+            while (pr) {
+                send(upstream.pull());
+                pr--;
+            }
+        } else {
+            pr++;
+        }
+        return DEVICE_OK;
+    }
+
+    void send(ManagedBuffer buffer) {
+        if (buffer.length() <= 0) return;
+
+        int format = upstream.getFormat();
+        int skip = DATASTREAM_FORMAT_BYTES_PER_SAMPLE(format);
+        uint8_t *ptr = &buffer[0];
+        uint8_t *next = ptr + buffer.length();
+
+        while (ptr < next) {
+            int remaining = (next - ptr) / skip;
+            int n = remaining > RADIO_AUDIO_SAMPLES_PER_PACKET ? RADIO_AUDIO_SAMPLES_PER_PACKET : remaining;
+
+            PacketBuffer pkt(2 + n);
+            pkt[0] = RADIO_PKT_DATA;
+            pkt[1] = seq++;
+
+            for (int i = 0; i < n; i++) {
+                int32_t v = StreamNormalizer::readSample[format](ptr);
+
+                if (v < -32768) v = -32768;
+                if (v > 32767)  v = 32767;
+                uint8_t pcm8 = (uint8_t)((v + 32768) >> 8);
+
+                pkt[2 + i] = pcm8;
+                ptr += skip;
+            }
+
+            uBit.radio.datagram.send(pkt);
+            fiber_sleep(3);
+        }
+    }
+};
+#endif
+
+
+#if MICROBIT_CODAL
 static StreamRecording *recording = NULL;
 static SplitterChannel *splitterChannel = NULL;
 static MixerChannel *channel = NULL;
 static SerialSink *serialSink = NULL;
+static RadioSink *radioSink = NULL;
 #endif
 
 
@@ -105,15 +200,18 @@ void checkEnv() {
         MicroBitAudio::requestActivation();
 
         splitterChannel = uBit.audio.splitter->createChannel();
-        uBit.audio.mic->setSampleRate( defaultSampleRate );
+        uBit.audio.mic->setSampleRate(defaultSampleRate);
 
         recording = new StreamRecording(*splitterChannel);
 
         channel = uBit.audio.mixer.addChannel(*recording, defaultSampleRate);
-
         channel->setVolume(75.0);
 
         serialSink = new SerialSink(*recording);
+        radioSink = new RadioSink(*recording);
+
+        uBit.radio.enable();
+        uBit.radio.setGroup(radioGroup);
     }
 #endif
 }
@@ -302,6 +400,94 @@ bool sendingToSerial() {
 #if MICROBIT_CODAL
     checkEnv();
     return recording->isPlaying() && recording->downStream == serialSink;
+#else
+    return false;
+#endif
+}
+
+//%
+void setRadioGroup(int group) {
+#if MICROBIT_CODAL
+    checkEnv();
+    radioGroup = group;
+    uBit.radio.setGroup(group);
+#else
+    target_panic(PANIC_VARIANT_NOT_SUPPORTED);
+#endif
+}
+
+//%
+void sendToRadio() {
+#if MICROBIT_CODAL
+    checkEnv();
+
+    if (recording->isPlaying() && recording->downStream != radioSink) {
+        recording->stop();
+    }
+
+    int sr = channel->getSampleRate();
+
+    radioSink->begin(sr);
+    recording->connect(*radioSink);
+    recording->playAsync();
+
+    int ms = recording->duration(sr);
+    fiber_sleep(ms + 50);
+    radioSink->end();
+#else
+    target_panic(PANIC_VARIANT_NOT_SUPPORTED);
+#endif
+}
+
+//%
+bool sendingToRadio() {
+#if MICROBIT_CODAL
+    checkEnv();
+    return recording->isPlaying() && recording->downStream == radioSink;
+#else
+    return false;
+#endif
+}
+
+//%
+void setRadioGroup(int group) {
+#if MICROBIT_CODAL
+    checkEnv();
+    radioGroup = group;
+    uBit.radio.setGroup(group);
+#else
+    target_panic(PANIC_VARIANT_NOT_SUPPORTED);
+#endif
+}
+
+//%
+void sendToRadio() {
+#if MICROBIT_CODAL
+    checkEnv();
+
+    if (recording->isPlaying() && recording->downStream != radioSink) {
+        recording->stop();
+    }
+
+    int sr = channel->getSampleRate();
+
+    radioSink->begin(sr);
+    recording->connect(*radioSink);
+    recording->playAsync();
+
+    int ms = recording->duration(sr);
+    fiber_sleep(ms + 50);
+    radioSink->end();
+#else
+    target_panic(PANIC_VARIANT_NOT_SUPPORTED);
+#endif
+}
+
+//%
+bool sendingToRadio() {
+#if MICROBIT_CODAL
+    checkEnv();
+    return recording->isPlaying() && recording->downStream == radioSink;
 #else
     return false;
 #endif

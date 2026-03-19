@@ -80,6 +80,15 @@ declare namespace record {
      */
     //% shim=record::setBothSamples
     function setBothSamples(sampleRate: int32): void;
+
+    //% shim=record::setRadioGroup
+    declare function __setRadioGroup(group: number): void
+
+    //% shim=record::sendToRadio
+    declare function __sendToRadio(): void
+
+    //% shim=record::sendingToRadio
+    declare function __sendingToRadio(): boolean
 }
 
 // Auto-generated. Do not edit. Really.
